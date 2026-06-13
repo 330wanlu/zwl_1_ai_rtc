@@ -30,7 +30,7 @@ def read_scenes(scenes_dir: str = "scenes") -> dict:
         return scenes
 
     for file_path in base_path.iterdir():
-        if not file_path.is_file():
+        if not file_path.is_file() or not file_path.name.endswith(".json"):
             continue
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
