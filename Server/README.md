@@ -11,10 +11,11 @@ yarn dev
 Node 服务启动时会自动读取 `Server/scenes` 下的所有文件作为可用的场景, 并通过接口 API 返回相关信息。
 
 因此，您需要：
-1. 在 `Server/scenes` 目录下参考其它 JSON 的格式, 自定义创建一个 `xxxx.json` 文件，用于描述您的场景，其中 xxxx 为场景名称。
-2. 确保您的 `.json` 文件符合模版定义(可参考 Custom.json), 大小写敏感。
-3. 新增场景 JSON 后须重启 Node 服务，保证场景信息被正常读取。
-4. JSON 文件中, 若 `RTCConfig.RoomId`、`RTCConfig.UserId`、`RTCConfig.Token` 其中之一未填写, Node 服务将自动生成对应的值以保证对话可以正常启动。
+1. 复制 `Server/scenes/Custom.json.example` 为 `Custom.json`，填入您的 AK/SK、AppId 等参数（`Custom.json` 已加入 `.gitignore`，不会提交到仓库）。
+2. 也可在 `Server/scenes` 目录下参考其它 JSON 的格式, 自定义创建一个 `xxxx.json` 文件，用于描述您的场景，其中 xxxx 为场景名称。
+3. 确保您的 `.json` 文件符合模版定义(可参考 Custom.json.example), 大小写敏感。
+4. 新增场景 JSON 后须重启 Node 服务，保证场景信息被正常读取。
+5. JSON 文件中, 若 `RTCConfig.RoomId`、`RTCConfig.UserId`、`RTCConfig.Token` 其中之一未填写, Node 服务将自动生成对应的值以保证对话可以正常启动。
 
 
 ## 相关参数获取

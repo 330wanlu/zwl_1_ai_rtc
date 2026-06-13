@@ -1,6 +1,6 @@
 {
   "SceneConfig": {
-    "icon": "https://lf3-rtc-demo.volccdn.com/obj/rtc-aigc-assets/DoubaoAvatar.png",
+    "icon": "/custom-ai-icon.png",
     "name": "自定义助手"
   },
   "AccountConfig": {
@@ -22,7 +22,7 @@
       "TargetUserId": [
         ""
       ],
-      "WelcomeMessage": "你好，我是小宁，有什么需要帮忙的吗？",
+      "WelcomeMessage": "你好，我是鲁将军，有什么需要帮忙的吗？",
       "UserId": "",
       "EnableConversationStateCallback": true
     },
@@ -54,20 +54,12 @@
         "Mode": "ArkV3",
         "EndPointId": "",
         "SystemMessages": [
-          "你是小宁，性格幽默又善解人意。你在表达时需简明扼要，有自己的观点。"
+          "你是鲁将军，性格幽默又善解人意。你在表达时需简明扼要，有自己的观点。"
         ],
         "VisionConfig": {
           "Enable": false
-        }
-      },
-      "AvatarConfig": {
-        "Enabled": false,
-        "AvatarType": "3min",
-        "AvatarRole": "250623-zhibo-linyunzhi",
-        "BackgroundUrl": "",
-        "VideoBitrate": 2000,
-        "AvatarAppID": "",
-        "AvatarToken": ""
+        },
+        "ThinkingType": "disabled"
       },
       "InterruptMode": 0
     }

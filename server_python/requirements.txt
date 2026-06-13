@@ -1,0 +1,14 @@
+# FastAPI: 现代、高性能的 Python Web 框架，用于构建 API 服务
+fastapi==0.115.6
+
+# Uvicorn: ASGI 服务器，用于运行 FastAPI 应用；[standard] 包含标准依赖（如 watchgod 等热重载工具）
+uvicorn[standard]==0.34.0
+
+# httpx: 现代的 HTTP 客户端库，支持异步请求，用于代理调用火山引擎 OpenAPI
+httpx==0.28.1
+
+# Pydantic: 数据验证和设置管理库，FastAPI 依赖它实现请求/响应模型的自动验证与序列化
+pydantic==2.10.4
+
+# python-dotenv: 从 .env 文件加载环境变量的库，便于管理配置（如 API Key）
+python-dotenv==1.0.1
