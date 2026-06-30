@@ -35,28 +35,30 @@ Demo 中以 `Custom` 场景为例，您可以自行新增场景。
     - 可通过 [快速跑通 Demo](https://console.volcengine.com/rtc/aigc/run?s=g) 快速获取参数, 跑通后点击右上角 `接入 API` 按钮复制相关代码贴到 JSON 配置文件中即可。
 ## 快速开始
 请注意，服务端和 Web 端都需要启动, 启动步骤如下:
-### 服务端
-进到项目根目录
-#### 安装依赖
+
+### 服务端（二选一）
+本项目提供 **Node.js** 和 **Python** 两个版本的服务端，端口均为 `3001`，请不要同时启动。
+
+#### Node.js 版（默认）
 ```shell
 cd Server
-yarn
+npm install
+npm run dev
 ```
-#### 运行项目
+
+#### Python 版
 ```shell
-yarn dev
+cd server_python
+pip install -r requirements.txt
+python app.py
 ```
 
 ### 前端页面
-进到项目根目录
-#### 安装依赖
 ```shell
-yarn
+npm install
+npm run dev
 ```
-#### 运行项目
-```shell
-yarn dev
-```
+前端默认请求 `http://localhost:3001`（见 `src/config/index.ts` 中的 `AIGC_PROXY_HOST`），与服务端端口一致，无需修改。
 
 ### 常见问题
 | 问题 | 解决方案 |
