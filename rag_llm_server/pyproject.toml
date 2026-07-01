@@ -1,0 +1,12 @@
+[project]
+name = "rag-llm-server"
+version = "1.0.0"
+description = "AIGC Server - 代理火山引擎 RTC 语音聊天 OpenAPI 请求"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "httpx==0.28.1",
+    "pydantic==2.10.4",
+    "python-dotenv==1.0.1",
+]
