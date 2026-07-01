@@ -2,19 +2,46 @@
 AIGC Server - Python 实现
 代理火山引擎 RTC 语音聊天 OpenAPI 请求
 """
+import asyncio
+import json
+import os
 import time
 import uuid
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 
 from util import read_scenes, assert_param, APIWrapper, sign_volcengine_request
 from token_manager import AccessToken, privileges
 
+load_dotenv()
+
+# 第三方 LLM 回调配置（火山 CustomLLM 回调使用）
+ARK_API_KEY = os.getenv("ARK_API_KEY", "")
+ARK_ENDPOINT_ID = os.getenv("ARK_ENDPOINT_ID", "")
+ARK_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+# 可选：火山回调时携带的 Bearer Token，留空则不校验
+CHAT_CALLBACK_TOKEN = os.getenv("CHAT_CALLBACK_TOKEN", "")
+# 本地服务的公网地址（ngrok 等），用于注入 CustomLLM 的回调 URL
+SERVER_URL = os.getenv("SERVER_URL", "").rstrip("/")
+
+
+def _inject_callback_url(scenes: dict) -> None:
+    """启动时把 SERVER_URL 注入到 CustomLLM 场景的 LLMConfig.Url（留空时才注入）。"""
+    if not SERVER_URL:
+        return
+    for scene_data in scenes.values():
+        llm = scene_data.get("VoiceChat", {}).get("Config", {}).get("LLMConfig", {})
+        if llm.get("Mode") == "CustomLLM" and not llm.get("Url"):
+            llm["Url"] = f"{SERVER_URL}/api/chat_callback"
+
 
 SCENES = read_scenes()
+_inject_callback_url(SCENES)
 
 app = FastAPI(title="AIGC Server", version="1.0.0")
 
@@ -162,6 +189,117 @@ async def get_scenes(request: Request):
 
     from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="Not Found")
+
+
+@app.post("/api/chat_callback")
+async def chat_callback(request: Request):
+    """
+    火山 RTC 云端回调入口（CustomLLM）。
+    接收火山按 OpenAI 格式发来的 SSE 请求，转发到火山方舟 Ark，
+    并按火山接口标准（SSE + data: [DONE]）流式返回。
+    若方舟调用失败，回退到假回复，保证链路可验证。
+    """
+    # 可选鉴权：火山会以 Authorization: Bearer <APIKey> 回调
+    if CHAT_CALLBACK_TOKEN:
+        auth = request.headers.get("authorization", "")
+        if auth != f"Bearer {CHAT_CALLBACK_TOKEN}":
+            return JSONResponse(
+                status_code=401,
+                content={"Error": {"Code": "AuthenticationError", "Message": "invalid callback token"}},
+            )
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    messages = body.get("messages", [])
+    model = body.get("model") or ARK_ENDPOINT_ID
+    temperature = body.get("temperature", 0.7)
+    max_tokens = body.get("max_tokens")
+    top_p = body.get("top_p", 0.9)
+
+    async def sse_stream():
+        # 优先走真实方舟
+        if ARK_API_KEY and ARK_ENDPOINT_ID:
+            try:
+                async for chunk in _call_ark_stream(messages, temperature, max_tokens, top_p):
+                    yield chunk
+                return
+            except Exception as e:
+                print(f"\033[33m方舟调用失败，回退假回复: {e}\033[0m")
+        # 兜底：假回复（用于第一步链路验证）
+        async for chunk in _fake_reply(model, messages):
+            yield chunk
+
+    return StreamingResponse(sse_stream(), media_type="text/event-stream")
+
+
+async def _call_ark_stream(messages, temperature, max_tokens, top_p):
+    """转发到火山方舟 Ark（OpenAI 兼容），透传其 SSE 流。"""
+    headers = {
+        "Authorization": f"Bearer {ARK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": ARK_ENDPOINT_ID,
+        "messages": messages,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "temperature": temperature,
+        "top_p": top_p,
+    }
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        async with client.stream("POST", ARK_API_URL, headers=headers, json=payload) as resp:
+            if resp.status_code != 200:
+                err = (await resp.aread()).decode("utf-8", errors="ignore")
+                err_chunk = {
+                    "Error": {"Code": str(resp.status_code), "Message": err}
+                }
+                yield f"data: {json.dumps(err_chunk, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            async for line in resp.aiter_lines():
+                if not line:
+                    continue
+                # 方舟返回形如 "data: {...}" 或 "data: [DONE]"，直接透传并补 SSE 分隔
+                yield line + "\n\n"
+
+
+async def _fake_reply(model, messages):
+    """假回复：固定逐字输出，用于在没有方舟配置时验证 SSE 链路。"""
+    req_id = str(uuid.uuid4())
+    created = int(time.time())
+    last = ""
+    if messages:
+        last = messages[-1].get("content", "")
+    text = f"（假回复，链路验证用）你刚才说：{last}。方舟未配置或不可用。"
+
+    def make(delta, finish=None, usage=None):
+        chunk = {
+            "id": req_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model or "fake",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+        }
+        if usage is not None:
+            chunk["usage"] = usage
+        return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+
+    yield make({"role": "assistant"})
+    for ch in text:
+        yield make({"content": ch})
+        await asyncio.sleep(0.02)
+    yield make({}, finish="stop", usage={
+        "prompt_tokens": 1,
+        "completion_tokens": len(text),
+        "total_tokens": 1 + len(text),
+    })
+    yield "data: [DONE]\n\n"
 
 
 if __name__ == "__main__":

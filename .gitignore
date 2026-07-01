@@ -44,6 +44,7 @@ __pycache__/
 # 本地场景配置（含 AK/SK、Token 等敏感信息，勿提交）
 Server/scenes/Custom.json
 server_python/scenes/Custom.json
+rag_llm_server/scenes/Custom.json
 
 # Server 使用 yarn 安装依赖，忽略 npm 生成的 lock 文件
 Server/package-lock.json
