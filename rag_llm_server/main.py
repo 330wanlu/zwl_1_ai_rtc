@@ -169,9 +169,9 @@ async def get_scenes(request: Request):
             scene_config["id"] = scene_name
             scene_config["botName"] = voice_chat.get("AgentConfig", {}).get("UserId")
             scene_config["isInterruptMode"] = config.get("InterruptMode") == 0
-            scene_config["isVision"] = vision_config.get("Enable")
+            scene_config["isVision"] = bool(vision_config.get("Enable"))
             scene_config["isScreenMode"] = snapshot_config.get("StreamType") == 1
-            scene_config["isAvatarScene"] = avatar_config.get("Enabled")
+            scene_config["isAvatarScene"] = bool(avatar_config.get("Enabled"))
             scene_config["avatarBgUrl"] = avatar_config.get("BackgroundUrl")
 
             rtc_config.pop("AppKey", None)
