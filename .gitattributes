@@ -1,0 +1,29 @@
+# 默认：文本文件统一按 LF 检出与提交，避免 Windows CRLF 假修改
+* text=auto eol=lf
+
+# Windows 批处理需要 CRLF 才能正确执行
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 常见二进制文件，禁止 Git 做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
