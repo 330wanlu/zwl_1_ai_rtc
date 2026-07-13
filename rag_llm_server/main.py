@@ -10,6 +10,9 @@ import uuid
 
 import httpx
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, Request, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -17,8 +20,7 @@ from pydantic import BaseModel
 
 from util import read_scenes, assert_param, APIWrapper, sign_volcengine_request
 from token_manager import AccessToken, privileges
-
-load_dotenv()
+from knowledge_search import RAG_ENABLED, augment_messages_with_rag, retrieve_and_format
 
 # 第三方 LLM 回调配置（火山 CustomLLM 回调使用）
 ARK_API_KEY = os.getenv("ARK_API_KEY", "")
@@ -219,11 +221,36 @@ async def chat_callback(request: Request):
     max_tokens = body.get("max_tokens")
     top_p = body.get("top_p", 0.9)
 
+    async def _prepare_messages_with_rag() -> list:
+        """检索知识库并将参考资料注入 messages。"""
+        if not RAG_ENABLED:
+            print("\033[33m[RAG] 未配置知识库 AK/SK，跳过检索\033[0m")
+            return messages
+
+        user_query = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                user_query = (msg.get("content") or "").strip()
+                break
+        if not user_query:
+            return messages
+
+        try:
+            context, raw = await retrieve_and_format(user_query, messages)
+            count = len((raw.get("data") or {}).get("result_list") or [])
+            print(f"\033[36m[RAG] 检索完成，命中 {count} 条参考资料\033[0m")
+            return augment_messages_with_rag(messages, context)
+        except Exception as e:
+            print(f"\033[33m[RAG] 知识库检索失败，跳过 RAG: {e}\033[0m")
+            return messages
+
     async def sse_stream():
+        llm_messages = await _prepare_messages_with_rag()
+
         # 优先走真实方舟
         if ARK_API_KEY and ARK_ENDPOINT_ID:
             try:
-                async for chunk in _call_ark_stream(messages, temperature, max_tokens, top_p):
+                async for chunk in _call_ark_stream(llm_messages, temperature, max_tokens, top_p):
                     yield chunk
                 return
             except Exception as e:
