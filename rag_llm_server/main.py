@@ -30,6 +30,39 @@ ARK_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 CHAT_CALLBACK_TOKEN = os.getenv("CHAT_CALLBACK_TOKEN", "")
 # 本地服务的公网地址（ngrok 等），用于注入 CustomLLM 的回调 URL
 SERVER_URL = os.getenv("SERVER_URL", "").rstrip("/")
+# 火山 OpenAPI / RAG 共用 AK/SK（Custom.json AccountConfig 留空时回退）
+VOLC_ACCESS_KEY = os.getenv("VOLC_ACCESS_KEY", "")
+VOLC_SECRET_KEY = os.getenv("VOLC_SECRET_KEY", "")
+# RTC 应用（Custom.json RTCConfig 留空时回退；AppId 与 AppKey 成对配置）
+RTC_APP_ID = os.getenv("RTC_APP_ID", "")
+RTC_APP_KEY = os.getenv("RTC_APP_KEY", "")
+
+
+def _resolve_account_credentials(account_config: dict) -> tuple[str, str]:
+    """优先 scenes/Custom.json，留空则回退 .env 的 VOLC_ACCESS_KEY / VOLC_SECRET_KEY。"""
+    ak = (account_config.get("accessKeyId") or VOLC_ACCESS_KEY).strip()
+    sk = (account_config.get("secretKey") or VOLC_SECRET_KEY).strip()
+    return ak, sk
+
+
+def _resolve_rtc_app_id(app_id: str | None) -> str:
+    """优先 Custom.json，留空则回退 .env 的 RTC_APP_ID。"""
+    return (app_id or RTC_APP_ID).strip()
+
+
+def _resolve_rtc_app_key(rtc_config: dict) -> str:
+    """优先 RTCConfig.AppKey，留空则回退 .env 的 RTC_APP_KEY。"""
+    return (rtc_config.get("AppKey") or RTC_APP_KEY).strip()
+
+
+def _sync_scene_rtc_app(scenes: dict) -> None:
+    """将解析后的 RTC AppId 同步到 RTCConfig 与 VoiceChat（两处需一致）。"""
+    for scene_data in scenes.values():
+        rtc_config = scene_data.setdefault("RTCConfig", {})
+        voice_chat = scene_data.setdefault("VoiceChat", {})
+        app_id = _resolve_rtc_app_id(rtc_config.get("AppId") or voice_chat.get("AppId"))
+        if app_id:
+            rtc_config["AppId"] = voice_chat["AppId"] = app_id
 
 
 def _inject_callback_url(scenes: dict) -> None:
@@ -43,6 +76,7 @@ def _inject_callback_url(scenes: dict) -> None:
 
 
 SCENES = read_scenes()
+_sync_scene_rtc_app(SCENES)
 _inject_callback_url(SCENES)
 
 app = FastAPI(title="AIGC Server", version="1.0.0")
@@ -81,8 +115,15 @@ async def proxy_api(
         voice_chat = json_data.get("VoiceChat", {})
         account_config = json_data.get("AccountConfig", {})
 
-        assert_param(account_config.get("accessKeyId"), "AccountConfig.accessKeyId 不能为空")
-        assert_param(account_config.get("secretKey"), "AccountConfig.secretKey 不能为空")
+        access_key_id, secret_key = _resolve_account_credentials(account_config)
+        assert_param(
+            access_key_id,
+            "AccountConfig.accessKeyId 或 .env 的 VOLC_ACCESS_KEY 不能为空",
+        )
+        assert_param(
+            secret_key,
+            "AccountConfig.secretKey 或 .env 的 VOLC_SECRET_KEY 不能为空",
+        )
 
         request_body = {}
         if Action == "StartVoiceChat":
@@ -102,8 +143,8 @@ async def proxy_api(
             pathname="/",
             params={"Action": Action, "Version": Version},
             body=request_body,
-            access_key_id=account_config["accessKeyId"],
-            secret_key=account_config["secretKey"],
+            access_key_id=access_key_id,
+            secret_key=secret_key,
             service="rtc",
             region="cn-north-1",
         )
@@ -140,7 +181,10 @@ async def get_scenes(request: Request):
             voice_chat = scene_data.setdefault("VoiceChat", {})
 
             app_id = rtc_config.get("AppId")
-            assert_param(app_id, f"{scene_name} 场景的 RTCConfig.AppId 不能为空")
+            assert_param(
+                app_id,
+                f"{scene_name} 场景的 RTCConfig.AppId 或 .env 的 RTC_APP_ID 不能为空",
+            )
 
             token = rtc_config.get("Token")
             user_id = rtc_config.get("UserId")
@@ -150,8 +194,11 @@ async def get_scenes(request: Request):
                 new_room_id = room_id or str(uuid.uuid4())
                 new_user_id = user_id or str(uuid.uuid4())
 
-                app_key = rtc_config.get("AppKey")
-                assert_param(app_key, f"自动生成 Token 时, {scene_name} 场景的 AppKey 不可为空")
+                app_key = _resolve_rtc_app_key(rtc_config)
+                assert_param(
+                    app_key,
+                    f"自动生成 Token 时, {scene_name} 场景的 RTCConfig.AppKey 或 .env 的 RTC_APP_KEY 不能为空",
+                )
 
                 expire_at = int(time.time()) + 24 * 3600
                 key = AccessToken(app_id, app_key, new_room_id, new_user_id)

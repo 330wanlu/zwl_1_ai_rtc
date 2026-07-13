@@ -4,18 +4,18 @@
     "name": "自定义助手"
   },
   "AccountConfig": {
-    "accessKeyId": "<your-volc-access-key-id>",
-    "secretKey": "<your-volc-secret-key>"
+    "accessKeyId": "",
+    "secretKey": ""
   },
   "RTCConfig": {
-    "AppId": "<your-rtc-app-id>",
+    "AppId": "",
+    "AppKey": "",
     "RoomId": "ChatRoom01",
     "UserId": "Huoshan01",
-    "Token": "<your-rtc-token>",
-    "AppKey": "<optional-rtc-app-key-仅在缺少Token时用于自动生成>"
+    "Token": ""
   },
   "VoiceChat": {
-    "AppId": "<your-rtc-app-id>",
+    "AppId": "",
     "RoomId": "ChatRoom01",
     "TaskId": "ChatTask01",
     "AgentConfig": {
