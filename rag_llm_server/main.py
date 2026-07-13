@@ -153,10 +153,12 @@ async def get_scenes(request: Request):
                 app_key = rtc_config.get("AppKey")
                 assert_param(app_key, f"自动生成 Token 时, {scene_name} 场景的 AppKey 不可为空")
 
+                expire_at = int(time.time()) + 24 * 3600
                 key = AccessToken(app_id, app_key, new_room_id, new_user_id)
-                key.add_privilege(privileges["PrivSubscribeStream"], 0)
-                key.add_privilege(privileges["PrivPublishStream"], 0)
-                key.expire_time(int(time.time()) + 24 * 3600)
+                key.add_privilege(privileges["PrivSubscribeStream"], expire_at)
+                key.add_privilege(privileges["PrivPublishStream"], expire_at)
+                key.add_privilege(privileges["privPublishScreenStream"], expire_at)
+                key.expire_time(expire_at)
 
                 rtc_config["RoomId"] = voice_chat["RoomId"] = new_room_id
                 rtc_config["UserId"] = voice_chat["AgentConfig"]["TargetUserId"][0] = new_user_id

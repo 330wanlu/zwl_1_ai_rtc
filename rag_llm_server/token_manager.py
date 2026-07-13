@@ -24,6 +24,8 @@ privileges = {
     "privPublishVideoStream": 2,
     "privPublishDataStream": 3,
     "PrivSubscribeStream": 4,
+    # 控制台生成的 Token 通常还包含 privilege 5
+    "privPublishScreenStream": 5,
 }
 
 
@@ -71,9 +73,10 @@ class AccessToken:
 
         buf = bytearray()
         buf.extend(struct.pack("<H", len(map_data)))
-        for key, value in map_data.items():
+        # 与控制台 Token 一致：按 privilege key 升序打包
+        for key in sorted(map_data.keys()):
             buf.extend(struct.pack("<H", key))
-            buf.extend(struct.pack("<I", value))
+            buf.extend(struct.pack("<I", map_data[key]))
         return bytes(buf)
 
     def serialize(self) -> str:
