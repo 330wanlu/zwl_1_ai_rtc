@@ -48,6 +48,82 @@
   
         .content {
           width: max-content;
+          max-width: 100%;
+        }
+
+        .mediaBlock {
+          margin-top: 10px;
+          width: 160px;
+          max-width: 100%;
+        }
+
+        .mediaTitle {
+          font-size: 12px;
+          font-weight: 600;
+          color: #4e5969;
+          margin-bottom: 6px;
+        }
+
+        .mediaList {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .mediaThumb {
+          width: 160px;
+          height: 100px;
+          overflow: hidden;
+          border-radius: 8px;
+          background: #f2f3f5;
+          flex-shrink: 0;
+        }
+
+        .mediaBroken {
+          width: 160px;
+          height: 100px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          box-sizing: border-box;
+          font-size: 12px;
+          color: #86909c;
+          text-align: center;
+          background: #f2f3f5;
+          border-radius: 8px;
+        }
+
+        .mediaImage {
+          display: block;
+          width: 160px !important;
+          height: 100px !important;
+          border-radius: 8px;
+          cursor: zoom-in;
+          overflow: hidden;
+
+          :global(.arco-image-img),
+          :global(img) {
+            width: 160px !important;
+            height: 100px !important;
+            object-fit: cover !important;
+            cursor: zoom-in;
+          }
+        }
+
+        .mediaVideo {
+          display: block;
+          width: 160px;
+          height: 100px;
+          object-fit: cover;
+          border-radius: 8px;
+          background: #000;
+        }
+
+        .mediaLink {
+          font-size: 12px;
+          color: #1664ff;
+          word-break: break-all;
         }
       }
   

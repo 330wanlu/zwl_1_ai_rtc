@@ -1,0 +1,19 @@
+{
+  "status": "pass",
+  "health": {
+    "status": "ok",
+    "data_platform_enabled": true,
+    "data_platform_base_url": "http://127.0.0.1:8000",
+    "data_platform_ok": true,
+    "data_platform": {
+      "status": "ok",
+      "service": "ai-query"
+    },
+    "default_media_room_id": "ChatRoom01",
+    "media_store": {
+      "ttl_sec": 120,
+      "max_per_room": 5,
+      "rooms": {}
+    }
+  }
+}

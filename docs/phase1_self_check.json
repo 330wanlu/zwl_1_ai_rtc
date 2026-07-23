@@ -1,0 +1,64 @@
+{
+  "data_platform_base_url": "http://127.0.0.1:8000",
+  "query_results": {
+    "怎么退货": {
+      "matched": true,
+      "items": [
+        {
+          "knowledge_id": 43,
+          "title": "退货流程",
+          "answer": "请按图示步骤操作，也可观看演示视频。",
+          "score": 25.04,
+          "media": [
+            {
+              "id": 81,
+              "type": "image",
+              "url": "http://localhost:8000/media_files/demo/return_step1.jpg",
+              "name": "退货步骤图",
+              "caption": "步骤示意"
+            },
+            {
+              "id": 82,
+              "type": "video",
+              "url": "http://localhost:8000/media_files/demo/return_demo.mp4",
+              "name": "退货操作视频",
+              "caption": "操作演示"
+            }
+          ]
+        }
+      ]
+    },
+    "学RAG有什么用": {
+      "matched": true,
+      "items": [
+        {
+          "knowledge_id": 48,
+          "title": "RAG就业与业务价值",
+          "answer": "学 RAG 能帮你把企业私有知识接到大模型上，做可靠问答和客服助手。市场上相关岗位需求多、薪资也不错，是落地 AI 应用的一条实用路径。你可以边看图边听我说明它的好处。",
+          "score": 45.08,
+          "media": [
+            {
+              "id": 148,
+              "type": "image",
+              "url": "http://localhost:8000/media_files/2026/07/rag_career_5500bd5e.jpg",
+              "name": "RAG高薪就业示意",
+              "caption": "RAG 就业方向示意"
+            },
+            {
+              "id": 149,
+              "type": "video",
+              "url": "http://localhost:8000/media_files/2026/07/rag_benefit_1693f019.mp4",
+              "name": "RAG价值讲解视频",
+              "caption": "RAG 价值讲解"
+            }
+          ]
+        }
+      ]
+    },
+    "今天天气怎么样": {
+      "matched": false,
+      "items": []
+    }
+  },
+  "status": "pass"
+}

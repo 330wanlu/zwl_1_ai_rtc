@@ -34,6 +34,17 @@ export interface Msg {
   paragraph?: boolean;
   definite?: boolean;
   isInterrupted?: boolean;
+  /** 多模态媒体（数据中台侧通道） */
+  media?: MsgMedia[];
+  mediaTitle?: string;
+}
+
+export interface MsgMedia {
+  id: number | string;
+  type: string;
+  url: string;
+  name?: string;
+  caption?: string | null;
 }
 
 export interface SceneConfig {
@@ -135,6 +146,15 @@ export interface RoomState {
    * @brief 自定义人设名称
    */
   customSceneName: string;
+
+  /**
+   * @brief 媒体到达时若尚无本轮 AI 气泡，先暂存，等字幕出来再挂上
+   */
+  pendingMediaAttach: {
+    media: MsgMedia[];
+    mediaTitle?: string;
+    answer?: string;
+  } | null;
 }
 
 const initialState: RoomState = {
@@ -161,7 +181,74 @@ const initialState: RoomState = {
   isShowSubtitle: true,
   isFullScreen: false,
   customSceneName: '',
+  pendingMediaAttach: null,
 };
+
+function isBotMsgUser(state: RoomState, user: string): boolean {
+  const botName = state.sceneConfigMap[state.scene]?.botName || '';
+  return Boolean(user) && (user === botName || user.includes('voiceChat_'));
+}
+
+function mergeMediaOntoMsg(
+  msg: Msg,
+  media: MsgMedia[],
+  mediaTitle?: string
+): void {
+  const existed = new Set((msg.media || []).map((m) => `${m.type}:${m.url}`));
+  const merged = [...(msg.media || [])];
+  for (const m of media) {
+    const key = `${m.type}:${m.url}`;
+    if (!existed.has(key)) {
+      merged.push(m);
+      existed.add(key);
+    }
+  }
+  msg.media = merged;
+  if (mediaTitle) {
+    msg.mediaTitle = mediaTitle;
+  }
+}
+
+/** 最近一次用户消息下标；找不到则为 -1 */
+function findLastUserMsgIndex(state: RoomState): number {
+  const userId = state.localUser.userId;
+  for (let i = state.msgHistory.length - 1; i >= 0; i--) {
+    const msg = state.msgHistory[i];
+    if (userId && msg.user === userId) {
+      return i;
+    }
+    // 非 bot 也视为用户侧（兼容 userId 尚未写入的情况）
+    if (!isBotMsgUser(state, msg.user)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/** 本轮（最近用户提问之后）未打断的 AI 气泡下标 */
+function findCurrentTurnBotMsgIndex(state: RoomState): number {
+  const lastUserIdx = findLastUserMsgIndex(state);
+  for (let i = state.msgHistory.length - 1; i > lastUserIdx; i--) {
+    const msg = state.msgHistory[i];
+    if (isBotMsgUser(state, msg.user) && !msg.isInterrupted) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function flushPendingMediaAttach(state: RoomState): void {
+  const pending = state.pendingMediaAttach;
+  if (!pending?.media?.length) {
+    return;
+  }
+  const targetIdx = findCurrentTurnBotMsgIndex(state);
+  if (targetIdx < 0) {
+    return;
+  }
+  mergeMediaOntoMsg(state.msgHistory[targetIdx], pending.media, pending.mediaTitle);
+  state.pendingMediaAttach = null;
+}
 
 export const roomSlice = createSlice({
   name: 'room',
@@ -195,6 +282,7 @@ export const roomSlice = createSlice({
       };
       state.remoteUsers = [];
       state.isJoined = false;
+      state.pendingMediaAttach = null;
     },
     remoteUserJoin: (state, { payload }) => {
       state.remoteUsers.push(payload);
@@ -280,6 +368,7 @@ export const roomSlice = createSlice({
     },
     clearHistoryMsg: (state) => {
       state.msgHistory = [];
+      state.pendingMediaAttach = null;
     },
     setHistoryMsg: (state, { payload }) => {
       const { paragraph, definite } = payload;
@@ -295,8 +384,10 @@ export const roomSlice = createSlice({
        * User 的语句以 paragraph 判断是否需要追加新内容
        */
       const currentSubtitleMode = state.sceneConfigMap[state.scene].isAvatarScene ? 1 : 0;
+      /** 已打断的气泡视为已结束，后续内容开新气泡，避免媒体/正文挂错行 */
       const lastMsgCompleted =
-        !fromBot || currentSubtitleMode ? lastMsg.paragraph : lastMsg.definite;
+        Boolean(lastMsg.isInterrupted) ||
+        (!fromBot || currentSubtitleMode ? lastMsg.paragraph : lastMsg.definite);
 
       if (state.msgHistory.length) {
         /** 如果上一句话是完整的则新增语句 */
@@ -329,19 +420,27 @@ export const roomSlice = createSlice({
           paragraph,
         });
       }
+
+      // 本轮 AI 字幕出现后，把暂存的媒体挂上来（不挂到「已打断」旧气泡）
+      if (fromBot) {
+        flushPendingMediaAttach(state);
+      }
     },
     setInterruptMsg: (state) => {
+      // 打断：标记旧气泡结束；已在该气泡上的 media 保留。
+      // 未拉取的服务端 pending 靠 TTL；前端暂存清空，避免下一轮误挂到旧上下文。
       state.isAITalking = false;
+      state.pendingMediaAttach = null;
       if (!state.msgHistory.length) {
         return;
       }
-      /** 找到最后一个末尾的字幕, 将其状态置换为打断 */
+      /** 找到最后一个末尾的字幕, 将其状态置换为打断，并视为已完成句子 */
       for (let id = state.msgHistory.length - 1; id >= 0; id--) {
         const msg = state.msgHistory[id];
         if (msg.value) {
-          if (!msg.definite) {
-            state.msgHistory[id].isInterrupted = true;
-          }
+          state.msgHistory[id].isInterrupted = true;
+          state.msgHistory[id].definite = true;
+          state.msgHistory[id].paragraph = true;
           break;
         }
       }
@@ -351,6 +450,50 @@ export const roomSlice = createSlice({
       state.msgHistory = [];
       state.isAITalking = false;
       state.isUserTalking = false;
+      state.pendingMediaAttach = null;
+    },
+    /**
+     * 将中台媒体挂到「最近一次用户提问之后」的未打断 AI 气泡；
+     * 若本轮 AI 字幕还没到，先暂存，等 setHistoryMsg 再挂。
+     */
+    attachMediaToLatestAIMsg: (
+      state,
+      {
+        payload,
+      }: {
+        payload: {
+          media: MsgMedia[];
+          mediaTitle?: string;
+          answer?: string;
+        };
+      }
+    ) => {
+      const media = (payload.media || []).filter((m) => m?.url);
+      if (!media.length) {
+        return;
+      }
+      const targetIdx = findCurrentTurnBotMsgIndex(state);
+      if (targetIdx >= 0) {
+        mergeMediaOntoMsg(state.msgHistory[targetIdx], media, payload.mediaTitle);
+        state.pendingMediaAttach = null;
+        return;
+      }
+      // 字幕未到：暂存，禁止挂到上一轮（含已打断）气泡
+      const existed = state.pendingMediaAttach?.media || [];
+      const merged = [...existed];
+      const keys = new Set(merged.map((m) => `${m.type}:${m.url}`));
+      for (const m of media) {
+        const key = `${m.type}:${m.url}`;
+        if (!keys.has(key)) {
+          merged.push(m);
+          keys.add(key);
+        }
+      }
+      state.pendingMediaAttach = {
+        media: merged,
+        mediaTitle: payload.mediaTitle || state.pendingMediaAttach?.mediaTitle,
+        answer: payload.answer || state.pendingMediaAttach?.answer,
+      };
     },
     updateShowSubtitle: (state, { payload }) => {
       state.isShowSubtitle = payload.isShowSubtitle;
@@ -382,6 +525,7 @@ export const {
   clearHistoryMsg,
   clearCurrentMsg,
   setInterruptMsg,
+  attachMediaToLatestAIMsg,
   updateNetworkQuality,
   updateScene,
   updateSceneConfig,

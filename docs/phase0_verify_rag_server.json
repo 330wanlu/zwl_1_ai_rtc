@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "http_status": 200,
+    "top_keys": [
+      "ResponseMetadata",
+      "Result"
+    ],
+    "raw_type": "<class 'dict'>"
+  },
+  "sample": {
+    "ResponseMetadata": {
+      "Action": "getScenes"
+    },
+    "Result": {
+      "scenes": [
+        {
+          "scene": {
+            "icon": "/custom-ai-icon.png",
+            "name": "自定义助手",
+            "id": "Custom",
+            "botName": "ChatBot01",
+            "isInterruptMode": true,
+            "isVision": false,
+            "isScreenMode": false,
+            "isAvatarScene": false,
+            "avatarBgUrl": null
+          },
+          "rtc": {
+            "AppId": "6a2981682ed0220165182b5a",
+            "RoomId": "ChatRoom01",
+            "UserId": "Huoshan01",
+            "Token": "0016a2981682ed0220165182b5aSQDz6BZunixiah5+Y2oKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAAefmNqAQAefmNqAgAefmNqAwAefmNqBAAefmNqBQAefmNqIAD2rpInCjxkkiDSqjWsuJwdjtRTkeW2cPWT/JzkICkPQg=="
+          }
+        }
+      ]
+    }
+  }
+}

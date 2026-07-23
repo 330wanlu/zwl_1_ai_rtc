@@ -3,9 +3,9 @@
  * SPDX-license-identifier: BSD-3-Clause
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Tag, Spin } from '@arco-design/web-react';
+import { Tag, Spin, Image } from '@arco-design/web-react';
 import { RootState } from '@/store';
 import Loading from '@/components/Loading/HorizonLoading';
 import { isMobile } from '@/utils/utils';
@@ -13,8 +13,82 @@ import { useScene } from '@/lib/useCommon';
 import USER_AVATAR from '@/assets/img/userAvatar.png';
 import styles from './index.module.less';
 import AIAvatarReadying from '@/components/AIAvatarLoading';
+import type { MsgMedia } from '@/store/slices/room';
 
 const lines: (string | React.ReactNode)[] = [];
+
+function ThumbImage({ item }: { item: MsgMedia }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className={styles.mediaBroken} title={item.url}>
+        图片暂时无法加载
+      </div>
+    );
+  }
+  return (
+    <Image
+      className={styles.mediaImage}
+      src={item.url}
+      alt={item.name || item.caption || 'image'}
+      width={160}
+      height={100}
+      preview
+      lazyload
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function MediaBlock({ media, title }: { media?: MsgMedia[]; title?: string }) {
+  if (!media?.length) {
+    return null;
+  }
+  return (
+    <div className={styles.mediaBlock}>
+      {title ? <div className={styles.mediaTitle}>{title}</div> : null}
+      <div className={styles.mediaList}>
+        {media.map((item) => {
+          const key = `${item.type}-${item.id}-${item.url}`;
+          if (item.type === 'image') {
+            return (
+              <div key={key} className={styles.mediaThumb}>
+                <ThumbImage item={item} />
+              </div>
+            );
+          }
+          if (item.type === 'video') {
+            return (
+              <div key={key} className={styles.mediaThumb}>
+                <video
+                  className={styles.mediaVideo}
+                  src={item.url}
+                  controls
+                  muted
+                  playsInline
+                  preload="metadata"
+                >
+                  <track kind="captions" />
+                </video>
+              </div>
+            );
+          }
+          return (
+            <a
+              key={key}
+              className={styles.mediaLink}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {item.name || item.url}
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function Conversation(props: React.HTMLAttributes<HTMLDivElement> & { showSubtitle: boolean }) {
   const { className, showSubtitle, ...rest } = props;
@@ -34,12 +108,14 @@ function Conversation(props: React.HTMLAttributes<HTMLDivElement> & { showSubtit
     return (owner === botName || owner.includes('voiceChat_')) && isAITalking;
   };
 
+  const mediaSig = msgHistory.map((m) => m.media?.length || 0).join(',');
+
   useEffect(() => {
     const container = containerRef.current;
     if (container) {
       container.scrollTop = container.scrollHeight - container.clientHeight;
     }
-  }, [msgHistory.length]);
+  }, [msgHistory.length, mediaSig]);
 
   return (
     <div
@@ -65,47 +141,50 @@ function Conversation(props: React.HTMLAttributes<HTMLDivElement> & { showSubtit
       ) : (
         ''
       )}
-      {(showSubtitle ? msgHistory : [])?.map(({ value, user, isInterrupted }, index) => {
-        const isUserMsg = user === userId;
-        const isRobotMsg = user === botName || user.includes('voiceChat_');
-        if (!isUserMsg && !isRobotMsg) {
-          return '';
-        }
-        return (
-          <div
-            key={`msg-container-${index}`}
-            className={styles.mobileLine}
-            style={{ justifyContent: isUserMsg && isMobile() ? 'flex-end' : '' }}
-          >
-            {!isMobile() && (
-              <div className={styles.msgName}>
-                <div className={styles.avatar}>
-                  <img src={isUserMsg ? USER_AVATAR : icon} alt="Avatar" />
-                </div>
-                {isUserMsg ? '我' : scene}
-              </div>
-            )}
+      {(showSubtitle ? msgHistory : [])?.map(
+        ({ value, user, isInterrupted, media, mediaTitle }, index) => {
+          const isUserMsg = user === userId;
+          const isRobotMsg = user === botName || user.includes('voiceChat_');
+          if (!isUserMsg && !isRobotMsg) {
+            return '';
+          }
+          return (
             <div
-              className={`${styles.sentence} ${isUserMsg ? styles.user : styles.robot}`}
-              key={`msg-${index}`}
+              key={`msg-container-${index}`}
+              className={styles.mobileLine}
+              style={{ justifyContent: isUserMsg && isMobile() ? 'flex-end' : '' }}
             >
-              <div className={styles.content}>
-                {value}
-                <div className={styles['loading-wrapper']}>
-                  {isAIReady &&
-                  (isUserTextLoading(user) || isAITextLoading(user)) &&
-                  index === msgHistory.length - 1 ? (
-                    <Loading gap={3} className={styles.loading} dotClassName={styles.dot} />
-                  ) : (
-                    ''
-                  )}
+              {!isMobile() && (
+                <div className={styles.msgName}>
+                  <div className={styles.avatar}>
+                    <img src={isUserMsg ? USER_AVATAR : icon} alt="Avatar" />
+                  </div>
+                  {isUserMsg ? '我' : scene}
                 </div>
+              )}
+              <div
+                className={`${styles.sentence} ${isUserMsg ? styles.user : styles.robot}`}
+                key={`msg-${index}`}
+              >
+                <div className={styles.content}>
+                  {value}
+                  {!isUserMsg ? <MediaBlock media={media} title={mediaTitle} /> : null}
+                  <div className={styles['loading-wrapper']}>
+                    {isAIReady &&
+                    (isUserTextLoading(user) || isAITextLoading(user)) &&
+                    index === msgHistory.length - 1 ? (
+                      <Loading gap={3} className={styles.loading} dotClassName={styles.dot} />
+                    ) : (
+                      ''
+                    )}
+                  </div>
+                </div>
+                {!isUserMsg && isInterrupted ? <Tag className={styles.interruptTag}>已打断</Tag> : ''}
               </div>
-              {!isUserMsg && isInterrupted ? <Tag className={styles.interruptTag}>已打断</Tag> : ''}
             </div>
-          </div>
-        );
-      })}
+          );
+        }
+      )}
     </div>
   );
 }

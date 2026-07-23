@@ -16,11 +16,13 @@ import UserTag from '@/components/UserTag';
 import FullScreenCard from '@/components/FullScreenCard';
 import MobileToolBar from '@/pages/Mobile/MobileToolBar';
 import { useScene } from '@/lib/useCommon';
+import useMediaPending from '@/lib/useMediaPending';
 
 function Room() {
   const room = useSelector((state: RootState) => state.room);
   const { isShowSubtitle, scene, isFullScreen } = room;
   const { isAvatarScene } = useScene();
+  useMediaPending(1000);
   return (
     <div className={`${style.wrapper} ${isMobile() ? style.mobile : ''}`}>
       {isMobile() ? <div className={style.mobilePlayer} id="mobile-local-player" /> : null}
